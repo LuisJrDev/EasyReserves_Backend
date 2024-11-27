@@ -19,9 +19,15 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install dependencies
+    - name: Install dependencies and package Lambdas
       run: |
         for dir in lambdas/*; do
+          # Verificar si el directorio tiene archivos
+          if [ ! -d "$dir" ]; then
+            echo "El directorio $dir no existe, saltando..."
+            continue
+          fi
+          
           # Crear directorio de paquete si no existe
           mkdir -p "$dir/package"
           
@@ -33,6 +39,7 @@ jobs:
           
           # Verificar que el directorio de paquete contiene archivos antes de proceder
           if [ -d "$dir/package" ] && [ "$(ls -A "$dir/package")" ]; then
+            echo "Empacando $dir..."
             # Crear el archivo zip con el contenido del paquete
             cd "$dir/package" && zip -r "$dir/package.zip" . 
           else
@@ -52,6 +59,7 @@ jobs:
           
           # Verificar que el archivo ZIP se ha creado correctamente
           if [ -f "$dir/package.zip" ]; then
+            echo "Desplegando función Lambda: $FUNCTION_NAME"
             # Desplegar la función Lambda con el archivo ZIP
             aws lambda update-function-code \
               --function-name "$FUNCTION_NAME" \
