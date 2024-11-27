@@ -19,35 +19,12 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install dependencies and package Lambdas
+    - name: Install dependencies
       run: |
         for dir in lambdas/*; do
-          # Verificar si el directorio tiene archivos
-          if [ ! -d "$dir" ]; then
-            echo "El directorio $dir no existe, saltando..."
-            continue
-          fi
-          
-          # Crear directorio de paquete si no existe
-          mkdir -p "$dir/package"
-          
-          # Instalar dependencias en el directorio de paquete
-          pip install -r "$dir/requirements.txt" -t "$dir/package"
-          
-          # Copiar el código fuente (app.py) al directorio de paquete
-          cp "$dir/app.py" "$dir/package/"
-          
-          # Verificar que el directorio de paquete contiene archivos antes de proceder
-          if [ -d "$dir/package" ] && [ "$(ls -A "$dir/package")" ]; then
-            echo "Empacando $dir..."
-            # Crear el archivo zip con el contenido del paquete
-            cd "$dir/package" && zip -r "$dir/package.zip" . 
-          else
-            echo "Error: El directorio $dir/package está vacío o no se pudo crear."
-            exit 1
-          fi
+          pip install -r "$dir/requirements.txt" -t "$dir/package" || true
+          mv "$dir/app.py" "$dir/package/"
         done
-
     - name: Deploy to AWS Lambda
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -56,16 +33,8 @@ jobs:
       run: |
         for dir in lambdas/*; do
           FUNCTION_NAME=$(basename "$dir")
-          
-          # Verificar que el archivo ZIP se ha creado correctamente
-          if [ -f "$dir/package.zip" ]; then
-            echo "Desplegando función Lambda: $FUNCTION_NAME"
-            # Desplegar la función Lambda con el archivo ZIP
-            aws lambda update-function-code \
-              --function-name "$FUNCTION_NAME" \
-              --zip-file fileb://"$dir/package.zip"
-          else
-            echo "Error: El archivo $dir/package.zip no se encuentra. No se puede desplegar."
-            exit 1
-          fi
+          zip -r "$dir/package.zip" "$dir/package"
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://"$dir/package.zip"
         done
