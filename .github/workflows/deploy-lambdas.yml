@@ -17,6 +17,8 @@ jobs:
     - name: Prepare deployment package
       run: |
         for dir in lambdas/*; do
+          # Verifica si el directorio 'package' existe, si no, lo crea
+          mkdir -p "$dir/package"
           mv "$dir/app.py" "$dir/package/"
           cd "$dir/package"
           zip -r ../package.zip .
