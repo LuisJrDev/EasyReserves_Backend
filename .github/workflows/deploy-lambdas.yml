@@ -19,8 +19,8 @@ jobs:
         for dir in lambdas/*; do
           # Verifica si el archivo 'app.py' existe antes de crear el archivo ZIP
           if [ -f "$dir/app.py" ]; then
-            # Crea el archivo ZIP que incluye solo 'app.py'
-            zip -r "$dir/package.zip" "$dir/app.py"
+            # Crea el archivo ZIP en la raíz sin subdirectorios
+            zip -j "$dir/package.zip" "$dir/app.py"
           else
             echo "Archivo app.py no encontrado en $dir"
           fi
