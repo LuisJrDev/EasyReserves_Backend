@@ -1,72 +1,55 @@
-import json
 import uuid
+import json
+
+# Inicializa el cliente de DynamoDB
+dynamodb = boto3.resource('dynamodb')
+reservas_table = dynamodb.Table('Reservas')
 
 def lambda_handler(event, context):
-    actividades_disponibles = {
-        "Tour en la playa": {
-            "2024-12-01": 20,
-            "2024-12-02": 18
-        },
-        "Campamento en la montaña": {
-            "2024-12-01": 15,
-            "2024-12-02": 0
-        },
-        "Excursión a las ruinas": {
-            "2024-12-01": 25,
-            "2024-12-02": 20
-        }
-    }
+    # Obtener datos del evento
+    nombre = event.get('nombre')
+    correo = event.get('correo')
+    actividad = event.get('actividad')
+    fecha = event.get('fecha')
+    asientos = event.get('asientos')
 
-    nombre = event.get("nombre")
-    correo = event.get("correo")
-    actividad = event.get("actividad")
-    fecha = event.get("fecha")
-    asientos = event.get("asientos")
-
+    # Validación de datos de entrada
     if not nombre or not correo or not actividad or not fecha or not asientos:
         return {
             'statusCode': 400,
             'body': json.dumps('Faltan parámetros: nombre, correo, actividad, fecha y asientos.')
         }
 
-    if actividad not in actividades_disponibles:
-        return {
-            'statusCode': 404,
-            'body': json.dumps(f'La actividad "{actividad}" no está disponible.')
-        }
+    # Generar ID único para la reserva
+    reserva_id = str(uuid.uuid4())
 
-    if fecha not in actividades_disponibles[actividad]:
-        return {
-            'statusCode': 404,
-            'body': json.dumps(f'No hay disponibilidad para la fecha "{fecha}" en la actividad "{actividad}".')
-        }
-
-    disponibilidad = actividades_disponibles[actividad][fecha]
-    asientos = int(asientos)
-
-    if asientos > disponibilidad:
-        return {
-            'statusCode': 400,
-            'body': json.dumps(f'No hay suficientes asientos disponibles. Solo quedan {disponibilidad}.')
-        }
-
-    actividades_disponibles[actividad][fecha] -= asientos
-    id_reserva = str(uuid.uuid4())
-    reserva = {
-        "id_reserva": id_reserva,
-        "nombre": nombre,
-        "correo": correo,
-        "actividad": actividad,
-        "fecha": fecha,
-        "asientos": asientos,
-        "estado": "confirmada"
+    # Crear ítem para insertar en DynamoDB
+    item = {
+        'id': reserva_id,           # ID único de la reserva
+        'nombre': nombre,
+        'correo': correo,
+        'actividad': actividad,
+        'fecha': fecha,
+        'asientos': int(asientos),  # Convertir a número
+        'estado': 'confirmada'      # Estado inicial de la reserva
     }
 
-    return {
-        'statusCode': 200,
-        'body': json.dumps({
-            "mensaje": "Reserva confirmada",
-            "reserva": reserva,
-            "disponibilidad_restante": actividades_disponibles[actividad][fecha]
-        })
-    }
+    try:
+        # Guardar en DynamoDB
+        reservas_table.put_item(Item=item)
+
+        # Respuesta exitosa
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'mensaje': 'Reserva creada exitosamente.',
+                'reserva': item
+            })
+        }
+
+    except Exception as e:
+        # Manejar errores
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f'Error al crear la reserva: {str(e)}')
+        }
