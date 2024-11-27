@@ -25,12 +25,11 @@ jobs:
           mkdir -p "$dir/package"
           pip install -r "$dir/requirements.txt" -t "$dir/package" || true
           cp "$dir/app.py" "$dir/package/"
-          cd "$dir/package" && zip -r "$dir/package.zip" .
+          cd "$dir/package" && zip -r "$dir/package.zip" .  
           aws lambda update-function-code \
             --function-name "$(basename "$dir")" \
             --zip-file fileb://"$dir/package.zip"
         done
-
 
     - name: Deploy to AWS Lambda
       env:
