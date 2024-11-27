@@ -1,32 +1,47 @@
+import boto3
 import json
 
+# Inicializa el cliente de DynamoDB
+dynamodb = boto3.resource('dynamodb')
+actividades_table = dynamodb.Table('Actividades')
+
 def lambda_handler(event, context):
-    actividades_disponibles = {
-        "Tour en la playa": {
-            "2024-12-01": 20,
-            "2024-12-02": 18
-        },
-        "Campamento en la montaña": {
-            "2024-12-01": 15,
-            "2024-12-02": 0
-        },
-        "Excursión a las ruinas": {
-            "2024-12-01": 25,
-            "2024-12-02": 20
-        }
-    }
+    try:
+        # Realizar una scan a la tabla de actividades
+        response = actividades_table.scan()
+        
+        # Filtrar actividades con asientos disponibles
+        actividades_disponibles = {}
 
-    disponibilidad_actividades = {}
-    for actividad, fechas in actividades_disponibles.items():
-        disponibilidad_actividad = {}
-        for fecha, cantidad in fechas.items():
-            disponibilidad_actividad[fecha] = {
-                "estado": "Disponible" if cantidad > 0 else "No disponible",
-                "asientos_disponibles": cantidad
+        for item in response.get('Items', []):
+            actividad = item['nombre']  # Nombre de la actividad
+            for fecha, asientos_disponibles in item.items():
+                # Ignorar el campo 'nombre' que no es una fecha
+                if fecha != 'nombre' and isinstance(asientos_disponibles, int) and asientos_disponibles > 0:
+                    # Si hay asientos disponibles, añadir a la lista
+                    if actividad not in actividades_disponibles:
+                        actividades_disponibles[actividad] = []
+                    actividades_disponibles[actividad].append({
+                        'fecha': fecha,
+                        'asientos_disponibles': asientos_disponibles
+                    })
+
+        # Si no se encuentran actividades disponibles
+        if not actividades_disponibles:
+            return {
+                'statusCode': 404,
+                'body': json.dumps('No hay actividades disponibles en las fechas indicadas.')
             }
-        disponibilidad_actividades[actividad] = disponibilidad_actividad
 
-    return {
-        'statusCode': 200,
-        'body': json.dumps(disponibilidad_actividades)
-    }
+        # Devolver la lista de actividades disponibles
+        return {
+            'statusCode': 200,
+            'body': json.dumps(actividades_disponibles)
+        }
+
+    except Exception as e:
+        # Manejo de errores
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f'Error al consultar las actividades: {str(e)}')
+        }
