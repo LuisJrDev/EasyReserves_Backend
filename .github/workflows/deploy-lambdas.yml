@@ -17,11 +17,13 @@ jobs:
     - name: Prepare deployment package
       run: |
         for dir in lambdas/*; do
-          # Verifica si el directorio 'package' existe, si no, lo crea
-          mkdir -p "$dir/package"
-          mv "$dir/app.py" "$dir/package/"
-          cd "$dir/package"
-          zip -r ../package.zip .
+          # Verifica si el archivo 'app.py' existe antes de crear el archivo ZIP
+          if [ -f "$dir/app.py" ]; then
+            # Crea el archivo ZIP que incluye solo 'app.py'
+            zip -r "$dir/package.zip" "$dir/app.py"
+          else
+            echo "Archivo app.py no encontrado en $dir"
+          fi
         done
 
     - name: Deploy to AWS Lambda
@@ -32,6 +34,7 @@ jobs:
       run: |
         for dir in lambdas/*; do
           FUNCTION_NAME=$(basename "$dir")
+          # Subir el archivo ZIP directamente
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
             --zip-file fileb://"$dir/package.zip"
