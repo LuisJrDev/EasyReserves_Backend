@@ -23,12 +23,9 @@ jobs:
       run: |
         for dir in lambdas/*; do
           mkdir -p "$dir/package"
-          pip install -r "$dir/requirements.txt" -t "$dir/package" || true
+          pip install -r "$dir/requirements.txt" -t "$dir/package"
           cp "$dir/app.py" "$dir/package/"
-          cd "$dir/package" && zip -r "$dir/package.zip" .  
-          aws lambda update-function-code \
-            --function-name "$(basename "$dir")" \
-            --zip-file fileb://"$dir/package.zip"
+          cd "$dir/package" && zip -r "$dir/package.zip" .
         done
 
     - name: Deploy to AWS Lambda
@@ -39,8 +36,10 @@ jobs:
       run: |
         for dir in lambdas/*; do
           FUNCTION_NAME=$(basename "$dir")
-          zip -r "$dir/package.zip" "$dir/package"
+          cd "$dir/package"
+          zip -r "$dir/package.zip" . 
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
             --zip-file fileb://"$dir/package.zip"
         done
+
