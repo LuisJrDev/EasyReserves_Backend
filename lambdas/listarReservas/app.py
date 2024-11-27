@@ -1,5 +1,6 @@
 import boto3
 import json
+from decimal import Decimal
 
 # Inicializa el cliente de DynamoDB
 dynamodb = boto3.resource('dynamodb')
@@ -7,24 +8,32 @@ actividades_table = dynamodb.Table('Actividades')
 
 def lambda_handler(event, context):
     try:
-        # Realizar una scan a la tabla de actividades
+        # Realizar un scan a la tabla de actividades
         response = actividades_table.scan()
-        
+
         # Filtrar actividades con asientos disponibles
         actividades_disponibles = {}
 
         for item in response.get('Items', []):
             actividad = item['nombre']  # Nombre de la actividad
-            for fecha, asientos_disponibles in item.items():
-                # Ignorar el campo 'nombre' que no es una fecha
-                if fecha != 'nombre' and isinstance(asientos_disponibles, int) and asientos_disponibles > 0:
-                    # Si hay asientos disponibles, añadir a la lista
-                    if actividad not in actividades_disponibles:
-                        actividades_disponibles[actividad] = []
-                    actividades_disponibles[actividad].append({
-                        'fecha': fecha,
-                        'asientos_disponibles': asientos_disponibles
-                    })
+            fecha = item['fecha']  # Fecha de la actividad
+            asientos_disponibles = item['asientos']  # Asientos disponibles
+
+            # Convertir Decimal a int si es necesario
+            if isinstance(asientos_disponibles, Decimal):
+                asientos_disponibles = int(asientos_disponibles)
+
+            # Verificar si hay asientos disponibles
+            if asientos_disponibles > 0:
+                # Si hay asientos disponibles, agregar la actividad a la lista
+                if actividad not in actividades_disponibles:
+                    actividades_disponibles[actividad] = []
+
+                actividades_disponibles[actividad].append({
+                    'fecha': fecha,
+                    'estado': 'Disponible',
+                    'asientos_disponibles': asientos_disponibles
+                })
 
         # Si no se encuentran actividades disponibles
         if not actividades_disponibles:
