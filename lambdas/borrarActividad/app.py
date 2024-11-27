@@ -1,5 +1,7 @@
 import json
 
+
+
 def lambda_handler(event, context):
     actividades_disponibles = {
         "Tour en la playa": {
