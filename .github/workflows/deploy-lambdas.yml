@@ -22,10 +22,23 @@ jobs:
     - name: Install dependencies
       run: |
         for dir in lambdas/*; do
+          # Crear directorio de paquete si no existe
           mkdir -p "$dir/package"
+          
+          # Instalar dependencias en el directorio de paquete
           pip install -r "$dir/requirements.txt" -t "$dir/package"
+          
+          # Copiar el código fuente (app.py) al directorio de paquete
           cp "$dir/app.py" "$dir/package/"
-          cd "$dir/package" && zip -r "$dir/package.zip" .
+          
+          # Verificar que el directorio de paquete contiene archivos antes de proceder
+          if [ -d "$dir/package" ] && [ "$(ls -A "$dir/package")" ]; then
+            # Crear el archivo zip con el contenido del paquete
+            cd "$dir/package" && zip -r "$dir/package.zip" . 
+          else
+            echo "Error: El directorio $dir/package está vacío o no se pudo crear."
+            exit 1
+          fi
         done
 
     - name: Deploy to AWS Lambda
@@ -36,10 +49,15 @@ jobs:
       run: |
         for dir in lambdas/*; do
           FUNCTION_NAME=$(basename "$dir")
-          cd "$dir/package"
-          zip -r "$dir/package.zip" . 
-          aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
-            --zip-file fileb://"$dir/package.zip"
+          
+          # Verificar que el archivo ZIP se ha creado correctamente
+          if [ -f "$dir/package.zip" ]; then
+            # Desplegar la función Lambda con el archivo ZIP
+            aws lambda update-function-code \
+              --function-name "$FUNCTION_NAME" \
+              --zip-file fileb://"$dir/package.zip"
+          else
+            echo "Error: El archivo $dir/package.zip no se encuentra. No se puede desplegar."
+            exit 1
+          fi
         done
-
