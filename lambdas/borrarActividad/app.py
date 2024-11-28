@@ -1,34 +1,45 @@
+import boto3
 import json
 
-
+# Inicializa el cliente de DynamoDB
+dynamodb = boto3.resource('dynamodb')
+actividades_table = dynamodb.Table('Actividades')
 
 def lambda_handler(event, context):
-    actividades_disponibles = {
-        "Tour en la playa": {
-            "2024-12-01": 20,
-            "2024-12-02": 18
-        }
-    }
+    # Obtener el ID de la actividad del evento
+    actividad_id = event.get('id')
 
-    nombre_actividad = event.get("nombre_actividad")
-
-    if not nombre_actividad:
+    # Validar que se haya proporcionado el ID
+    if not actividad_id:
         return {
             'statusCode': 400,
-            'body': json.dumps('Falta el parámetro: nombre_actividad.')
+            'body': json.dumps('El campo "id" es obligatorio para eliminar una actividad.')
         }
 
-    if nombre_actividad not in actividades_disponibles:
+    try:
+        # Verificar si la actividad existe
+        actividad_item = actividades_table.get_item(Key={'id': actividad_id})
+        if 'Item' not in actividad_item:
+            return {
+                'statusCode': 404,
+                'body': json.dumps('Actividad no encontrada.')
+            }
+
+        # Eliminar la actividad de la tabla
+        actividades_table.delete_item(Key={'id': actividad_id})
+
+        # Respuesta exitosa
         return {
-            'statusCode': 404,
-            'body': json.dumps(f'La actividad "{nombre_actividad}" no existe.')
+            'statusCode': 200,
+            'body': json.dumps({
+                'mensaje': 'Actividad eliminada exitosamente.',
+                'id': actividad_id
+            })
         }
 
-    del actividades_disponibles[nombre_actividad]
-
-    return {
-        'statusCode': 200,
-        'body': json.dumps({
-            "mensaje": f'Actividad "{nombre_actividad}" eliminada con éxito.'
-        })
-    }
+    except Exception as e:
+        # Manejo de errores generales
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f'Error al eliminar la actividad: {str(e)}')
+        }

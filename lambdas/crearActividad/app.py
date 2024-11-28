@@ -1,34 +1,51 @@
+import boto3
+import uuid
 import json
 
+# Inicializa el cliente de DynamoDB
+dynamodb = boto3.resource('dynamodb')
+actividades_table = dynamodb.Table('Actividades')
+
 def lambda_handler(event, context):
-    actividades_disponibles = {
-        "Tour en la playa": {},
-        "Campamento en la montaña": {},
-        "Excursión a las ruinas": {}
-    }
+    # Obtener datos del evento
+    nombre = event.get('nombre')
+    fecha = event.get('fecha')
+    asientos = event.get('asientos')
 
-    nombre_actividad = event.get("nombre_actividad")
-    fecha = event.get("fecha")
-    asientos = event.get("asientos")
-
-    if not nombre_actividad or not fecha or not asientos:
+    # Validación de datos de entrada
+    if not nombre or not fecha or not asientos:
         return {
             'statusCode': 400,
-            'body': json.dumps('Faltan parámetros: nombre_actividad, fecha y asientos.')
+            'body': json.dumps('Faltan parámetros: nombre, fecha y asientos.')
         }
 
-    if nombre_actividad in actividades_disponibles:
+    try:
+        # Generar un UUID como ID para la actividad
+        actividad_id = str(uuid.uuid4())  # Genera un UUID único para la actividad
+
+        # Crear ítem para insertar en DynamoDB
+        item = {
+            'id': actividad_id,          # UUID como ID único de la actividad
+            'nombre': nombre,
+            'fecha': fecha,
+            'asientos': int(asientos)    # Convertir a número
+        }
+
+        # Guardar la actividad en la tabla DynamoDB
+        actividades_table.put_item(Item=item)
+
+        # Respuesta exitosa
         return {
-            'statusCode': 400,
-            'body': json.dumps(f'La actividad "{nombre_actividad}" ya existe.')
+            'statusCode': 200,
+            'body': json.dumps({
+                'mensaje': 'Actividad creada exitosamente.',
+                'actividad': item
+            })
         }
 
-    actividades_disponibles[nombre_actividad] = {fecha: int(asientos)}
-
-    return {
-        'statusCode': 201,
-        'body': json.dumps({
-            "mensaje": "Actividad creada exitosamente",
-            "actividad": actividades_disponibles[nombre_actividad]
-        })
-    }
+    except Exception as e:
+        # Manejar errores generales
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f'Error al crear la actividad: {str(e)}')
+        }
